@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { authService } from '../services'
+import { useAuth } from '../hooks/useAuth'
 import { toast } from 'react-toastify'
 
 export default function Register() {
@@ -8,19 +8,12 @@ export default function Register() {
     name: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    role: 'patient'
+    confirmPassword: ''
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
   const navigate = useNavigate()
-
-  const roles = [
-    { value: 'patient', label: 'Patient' },
-    { value: 'doctor', label: 'Doctor' },
-    { value: 'admin', label: 'Admin' },
-    { value: 'receptionist', label: 'Receptionist' }
-  ]
+  const { register } = useAuth()
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -55,17 +48,17 @@ export default function Register() {
 
     setLoading(true)
     try {
-      const { data } = await authService.register({
+      const success = await register({
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        role: formData.role
+        confirmPassword: formData.confirmPassword
       })
       
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      toast.success('Registration successful!')
-      navigate('/')
+      if (success) {
+        toast.success('Registration successful!')
+        navigate('/')
+      }
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'Registration failed'
       toast.error(errorMsg)
@@ -155,24 +148,6 @@ export default function Register() {
                 disabled={loading}
               />
               {errors.confirmPassword && <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>}
-            </div>
-
-            {/* Role Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Register As</label>
-              <select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
-                disabled={loading}
-              >
-                {roles.map(role => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Error Message */}

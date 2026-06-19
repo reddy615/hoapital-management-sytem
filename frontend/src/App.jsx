@@ -25,6 +25,14 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import RoleBasedRoute from './components/RoleBasedRoute'
 
+const ROLES = {
+  appointments: ['admin', 'doctor', 'patient', 'receptionist', 'staff'],
+  billing: ['admin', 'receptionist', 'patient'],
+  consultations: ['admin', 'doctor', 'patient'],
+  prescriptions: ['admin', 'doctor', 'patient'],
+  reports: ['admin']
+}
+
 function App() {
   const { loading } = useAuth()
 
@@ -119,51 +127,51 @@ function App() {
         <Route
           path="/appointments"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={ROLES.appointments}>
               <Layout>
                 <Appointments />
               </Layout>
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/consultations"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={ROLES.consultations}>
               <Layout>
                 <Consultations />
               </Layout>
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/prescriptions"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={ROLES.prescriptions}>
               <Layout>
                 <Prescriptions />
               </Layout>
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/billing"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={ROLES.billing}>
               <Layout>
                 <Billing />
               </Layout>
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/reports"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute allowedRoles={ROLES.reports}>
               <Layout>
                 <Reports />
               </Layout>
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
 

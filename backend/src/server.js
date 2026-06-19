@@ -36,13 +36,13 @@ app.get('/health', (req, res) => {
 app.use('/auth', authRoutes)
 
 // Protected routes
-app.use('/patients', authenticate, patientRoutes)
-app.use('/doctors', authenticate, doctorRoutes)
-app.use('/appointments', authenticate, appointmentRoutes)
-app.use('/consultations', authenticate, consultationRoutes)
-app.use('/prescriptions', authenticate, prescriptionRoutes)
-app.use('/billing', authenticate, billingRoutes)
-app.use('/reports', authenticate, reportRoutes)
+app.use('/patients', authenticate, authorize('admin', 'doctor', 'receptionist', 'staff'), patientRoutes)
+app.use('/doctors', authenticate, authorize('admin', 'doctor', 'receptionist', 'patient', 'staff'), doctorRoutes)
+app.use('/appointments', authenticate, authorize('admin', 'doctor', 'patient', 'receptionist', 'staff'), appointmentRoutes)
+app.use('/consultations', authenticate, authorize('admin', 'doctor', 'patient'), consultationRoutes)
+app.use('/prescriptions', authenticate, authorize('admin', 'doctor', 'patient'), prescriptionRoutes)
+app.use('/billing', authenticate, authorize('admin', 'receptionist', 'patient'), billingRoutes)
+app.use('/reports', authenticate, authorize('admin'), reportRoutes)
 
 // Error handling
 app.use(notFound)

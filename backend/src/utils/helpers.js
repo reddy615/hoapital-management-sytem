@@ -1,25 +1,10 @@
-import jwt from 'jsonwebtoken'
-import { config } from '../config/env.js'
-
-export const generateToken = (userId, role) => {
-  return jwt.sign(
-    { userId, role },
-    config.JWT_SECRET,
-    { expiresIn: config.JWT_EXPIRE }
-  )
-}
-
-export const verifyToken = (token) => {
-  return jwt.verify(token, config.JWT_SECRET)
-}
-
 export const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
 }
 
 export const validatePassword = (password) => {
-  return password.length >= 6
+  return password.length >= 8
 }
 
 export const getTimeSlots = (startTime, endTime, slotDuration = 30) => {

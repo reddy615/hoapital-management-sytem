@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 export default function PatientDashboard() {
   return (
     <div className="space-y-6">

@@ -18,7 +18,9 @@ export const schemas = {
     confirmPassword: Joi.string().valid(Joi.ref('password')).required().messages({
       'any.only': 'Passwords do not match'
     }),
-    role: Joi.string().valid('admin', 'doctor', 'patient', 'receptionist').default('patient')
+    role: Joi.string().valid('patient').default('patient').messages({
+      'any.only': 'Only patient self-registration is allowed'
+    })
   }),
 
   login: Joi.object({

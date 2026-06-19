@@ -1,40 +1,27 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { authService } from '../services'
+import { useAuthStore } from '../context/authStore'
 import { toast } from 'react-toastify'
 
 export const useAuth = () => {
-  const [user, setUser] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [loading, setLoading] = useState(true)
-
-  // Initialize from localStorage
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user')
-    const token = localStorage.getItem('token')
-    
-    if (storedUser && token) {
-      try {
-        setUser(JSON.parse(storedUser))
-        setIsAuthenticated(true)
-      } catch (error) {
-        console.error('Error parsing stored user:', error)
-        localStorage.removeItem('user')
-        localStorage.removeItem('token')
-      }
-    }
-    setLoading(false)
-  }, [])
+  const {
+    user,
+    token,
+    refreshToken,
+    isAuthenticated,
+    loading,
+    login: setAuth,
+    logout: clearAuth,
+    setTokens,
+    setUser
+  } = useAuthStore()
 
   const login = useCallback(async (email, password) => {
     try {
-      const { data } = await authService.login({ email, password })
+      const response = await authService.login({ email, password })
+      const { user, accessToken, refreshToken } = response.data.data
       
-      localStorage.setItem('user', JSON.stringify(data.user))
-      localStorage.setItem('token', data.accessToken)
-      localStorage.setItem('refreshToken', data.refreshToken)
-      
-      setUser(data.user)
-      setIsAuthenticated(true)
+      setAuth(user, accessToken, refreshToken)
       
       return true
     } catch (error) {
@@ -42,18 +29,14 @@ export const useAuth = () => {
       toast.error(message)
       return false
     }
-  }, [])
+  }, [setAuth])
 
   const register = useCallback(async (formData) => {
     try {
-      const { data } = await authService.register(formData)
+      const response = await authService.register(formData)
+      const { user, accessToken, refreshToken } = response.data.data
       
-      localStorage.setItem('user', JSON.stringify(data.user))
-      localStorage.setItem('token', data.accessToken)
-      localStorage.setItem('refreshToken', data.refreshToken)
-      
-      setUser(data.user)
-      setIsAuthenticated(true)
+      setAuth(user, accessToken, refreshToken)
       
       return true
     } catch (error) {
@@ -61,23 +44,19 @@ export const useAuth = () => {
       toast.error(message)
       return false
     }
-  }, [])
+  }, [setUser])
 
   const logout = useCallback(() => {
-    localStorage.removeItem('user')
-    localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken')
-    setUser(null)
-    setIsAuthenticated(false)
+    clearAuth()
     toast.success('Logged out successfully')
-  }, [])
+  }, [clearAuth])
 
   const updateProfile = useCallback(async (profileData) => {
     try {
-      const { data } = await authService.updateProfile(profileData)
+      const response = await authService.updateProfile(profileData)
+      const { user } = response.data.data
       
-      localStorage.setItem('user', JSON.stringify(data.user))
-      setUser(data.user)
+      setUser(user)
       
       toast.success('Profile updated successfully')
       return true
@@ -86,7 +65,7 @@ export const useAuth = () => {
       toast.error(message)
       return false
     }
-  }, [])
+  }, [setAuth])
 
   const changePassword = useCallback(async (passwordData) => {
     try {
@@ -126,21 +105,24 @@ export const useAuth = () => {
 
   const refreshAuthToken = useCallback(async () => {
     try {
-      const refreshToken = localStorage.getItem('refreshToken')
       if (!refreshToken) return false
 
-      const { data } = await authService.refreshToken({ refreshToken })
-      localStorage.setItem('token', data.accessToken)
+      const response = await authService.refreshToken({ refreshToken })
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data
+
+      setTokens(accessToken, newRefreshToken)
       
       return true
     } catch (error) {
       logout()
       return false
     }
-  }, [logout])
+  }, [logout, refreshToken, setTokens])
 
   return {
     user,
+    token,
+    refreshToken,
     isAuthenticated,
     loading,
     login,

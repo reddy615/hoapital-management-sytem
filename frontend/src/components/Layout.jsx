@@ -1,9 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
+const NAV_PERMISSIONS = {
+  appointments: ['admin', 'doctor', 'patient', 'receptionist', 'staff'],
+  billing: ['admin', 'receptionist', 'patient'],
+  consultations: ['admin', 'doctor', 'patient'],
+  prescriptions: ['admin', 'doctor', 'patient'],
+  reports: ['admin']
+}
+
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const canAccess = (roles) => roles.includes(user?.role)
 
   const handleLogout = async () => {
     await logout()
@@ -21,11 +30,21 @@ export default function Layout({ children }) {
 
         <nav className="mt-6">
           <NavLink to="/" icon="🏠" label="Dashboard" />
-          <NavLink to="/appointments" icon="📅" label="Appointments" />
-          <NavLink to="/consultations" icon="🩺" label="Consultations" />
-          <NavLink to="/prescriptions" icon="💊" label="Prescriptions" />
-          <NavLink to="/billing" icon="💳" label="Billing" />
-          <NavLink to="/reports" icon="📊" label="Reports" />
+          {canAccess(NAV_PERMISSIONS.appointments) && (
+            <NavLink to="/appointments" icon="📅" label="Appointments" />
+          )}
+          {canAccess(NAV_PERMISSIONS.consultations) && (
+            <NavLink to="/consultations" icon="🩺" label="Consultations" />
+          )}
+          {canAccess(NAV_PERMISSIONS.prescriptions) && (
+            <NavLink to="/prescriptions" icon="💊" label="Prescriptions" />
+          )}
+          {canAccess(NAV_PERMISSIONS.billing) && (
+            <NavLink to="/billing" icon="💳" label="Billing" />
+          )}
+          {canAccess(NAV_PERMISSIONS.reports) && (
+            <NavLink to="/reports" icon="📊" label="Reports" />
+          )}
           
           {user?.role === 'admin' && (
             <>

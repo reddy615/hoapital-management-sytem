@@ -1,11 +1,12 @@
 import { User } from '../models/User.js'
-import { generateToken, generatePasswordResetToken, generateVerificationToken } from '../utils/tokenUtils.js'
+import { generateToken, generateRefreshToken, generatePasswordResetToken, verifyRefreshToken } from '../utils/tokenUtils.js'
 import { validate, schemas } from '../utils/validation.js'
-import { AppError, errorMessages, errorStatusCodes } from '../utils/errors.js'
+import { errorMessages, errorStatusCodes } from '../utils/errors.js'
 import { sendEmail } from '../services/emailService.js'
 import { config } from '../config/env.js'
-import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
+
+const PASSWORD_RESET_RESPONSE = 'If an active account exists for this email, a password reset link has been sent'
 
 // Register Controller
 export const register = async (req, res, next) => {
@@ -41,7 +42,7 @@ export const register = async (req, res, next) => {
 
     // Generate tokens
     const accessToken = generateToken(user._id, user.role)
-    const refreshToken = generateToken(user._id, user.role, '30d')
+    const refreshToken = generateRefreshToken(user._id)
 
     // Send verification email
     await sendEmail(
@@ -123,7 +124,7 @@ export const login = async (req, res, next) => {
 
     // Generate tokens
     const accessToken = generateToken(user._id, user.role)
-    const refreshToken = generateToken(user._id, user.role, '30d')
+    const refreshToken = generateRefreshToken(user._id)
 
     res.json({
       success: true,
@@ -187,6 +188,13 @@ export const updateProfile = async (req, res, next) => {
       { new: true, runValidators: true }
     )
 
+    if (!user) {
+      return res.status(errorStatusCodes.NOT_FOUND).json({
+        success: false,
+        message: errorMessages.USER_NOT_FOUND
+      })
+    }
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -214,6 +222,13 @@ export const changePassword = async (req, res, next) => {
 
     const { oldPassword, newPassword } = validation.value
     const user = await User.findById(req.user.userId).select('+password')
+
+    if (!user) {
+      return res.status(errorStatusCodes.NOT_FOUND).json({
+        success: false,
+        message: errorMessages.USER_NOT_FOUND
+      })
+    }
 
     // Verify old password
     const isPasswordValid = await user.comparePassword(oldPassword)
@@ -253,10 +268,10 @@ export const forgotPassword = async (req, res, next) => {
     const { email } = validation.value
     const user = await User.findOne({ email })
 
-    if (!user) {
-      return res.status(errorStatusCodes.NOT_FOUND).json({
-        success: false,
-        message: 'User not found with this email'
+    if (!user || !user.isActive) {
+      return res.json({
+        success: true,
+        message: PASSWORD_RESET_RESPONSE
       })
     }
 
@@ -268,7 +283,7 @@ export const forgotPassword = async (req, res, next) => {
     await user.save()
 
     // Send reset email
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${token}`
+    const resetUrl = `${config.FRONTEND_URL}/reset-password/${token}`
     
     await sendEmail(
       email,
@@ -282,7 +297,7 @@ export const forgotPassword = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Password reset link sent to your email'
+      message: PASSWORD_RESET_RESPONSE
     })
   } catch (error) {
     next(error)
@@ -359,22 +374,49 @@ export const refreshToken = async (req, res, next) => {
       })
     }
 
-    const decoded = jwt.verify(token, config.JWT_SECRET)
+    let decoded
+    try {
+      decoded = verifyRefreshToken(token)
+    } catch (error) {
+      if (error.message === 'Refresh token expired') {
+        return res.status(errorStatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: 'Refresh token expired'
+        })
+      }
+      return res.status(errorStatusCodes.UNAUTHORIZED).json({
+        success: false,
+        message: errorMessages.TOKEN_INVALID
+      })
+    }
+
     const user = await User.findById(decoded.userId)
 
-    if (!user) {
-      return res.status(errorStatusCodes.NOT_FOUND).json({
+    if (!user || !user.isActive) {
+      return res.status(errorStatusCodes.UNAUTHORIZED).json({
         success: false,
-        message: errorMessages.USER_NOT_FOUND
+        message: errorMessages.TOKEN_INVALID
+      })
+    }
+
+    const passwordChangedAt = user.lastPasswordChange
+      ? Math.floor(user.lastPasswordChange.getTime() / 1000)
+      : 0
+    if (!decoded.iat || passwordChangedAt > decoded.iat) {
+      return res.status(errorStatusCodes.UNAUTHORIZED).json({
+        success: false,
+        message: errorMessages.TOKEN_INVALID
       })
     }
 
     const accessToken = generateToken(user._id, user.role)
+    const newRefreshToken = generateRefreshToken(user._id)
 
     res.json({
       success: true,
       data: {
-        accessToken
+        accessToken,
+        refreshToken: newRefreshToken
       }
     })
   } catch (error) {
@@ -385,8 +427,13 @@ export const refreshToken = async (req, res, next) => {
 // Get All Users (Admin only)
 export const getAllUsers = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page) || 1
-    const limit = parseInt(req.query.limit) || 10
+    let page = Number.parseInt(req.query.page, 10) || 1
+    let limit = Number.parseInt(req.query.limit, 10) || 10
+
+    // Validate pagination parameters
+    if (page < 1) page = 1
+    if (limit < 1 || limit > 100) limit = 10
+
     const skip = (page - 1) * limit
 
     const users = await User.find()
@@ -399,11 +446,11 @@ export const getAllUsers = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        users: users.map(u => u.toJSON()),
+        users: users.map(user => user.toJSON()),
         pagination: {
+          total,
           page,
           limit,
-          total,
           pages: Math.ceil(total / limit)
         }
       }

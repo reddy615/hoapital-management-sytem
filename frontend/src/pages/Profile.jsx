@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { authService } from '../services'
-import { toast } from 'react-toastify'
 
 export default function Profile() {
-  const { user, logout } = useAuth()
+  const { user, logout, updateProfile, changePassword } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -70,16 +68,11 @@ export default function Profile() {
     }
 
     setLoading(true)
-    try {
-      const { data } = await authService.updateProfile(formData)
-      localStorage.setItem('user', JSON.stringify(data.user))
-      toast.success('Profile updated successfully!')
+    const success = await updateProfile(formData)
+    if (success) {
       setIsEditing(false)
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update profile')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   const handleChangePassword = async (e) => {
@@ -97,20 +90,21 @@ export default function Profile() {
     }
 
     setLoading(true)
-    try {
-      await authService.changePassword(passwordData)
-      toast.success('Password changed successfully!')
+    const success = await changePassword(passwordData)
+    if (success) {
       setIsChangingPassword(false)
       setPasswordData({
         oldPassword: '',
         newPassword: '',
         confirmPassword: ''
       })
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to change password')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    window.location.href = '/login'
   }
 
   if (!user) {
@@ -122,10 +116,7 @@ export default function Profile() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
         <button
-          onClick={() => {
-            logout()
-            window.location.href = '/login'
-          }}
+          onClick={handleLogout}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
         >
           Logout

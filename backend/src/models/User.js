@@ -14,7 +14,8 @@ const userSchema = new mongoose.Schema(
       required: [true, 'Email is required'],
       unique: true,
       lowercase: true,
-      match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email']
+      trim: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please provide a valid email']
     },
     password: {
       type: String,
@@ -28,7 +29,9 @@ const userSchema = new mongoose.Schema(
         values: ['admin', 'doctor', 'patient', 'receptionist', 'staff'],
         message: 'Role must be one of: admin, doctor, patient, receptionist, staff'
       },
-      default: 'patient'
+      default: 'patient',
+      lowercase: true,
+      trim: true
     },
     phone: {
       type: String,
@@ -56,23 +59,16 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
-    lockUntil: Date,
-    createdAt: {
-      type: Date,
-      default: Date.now
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now
-    }
+    lockUntil: Date
   },
   { timestamps: true }
 )
 
 // Index for better query performance
-userSchema.index({ email: 1 })
 userSchema.index({ role: 1 })
 userSchema.index({ createdAt: -1 })
+userSchema.index({ passwordResetToken: 1, passwordResetTokenExpires: 1 }, { sparse: true })
+userSchema.index({ emailVerificationToken: 1 }, { sparse: true })
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

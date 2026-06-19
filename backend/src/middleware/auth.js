@@ -1,12 +1,14 @@
-import jwt from 'jsonwebtoken'
 import { config } from '../config/env.js'
 import { errorStatusCodes, errorMessages } from '../utils/errors.js'
+import { verifyToken } from '../utils/tokenUtils.js'
+import { User } from '../models/User.js'
 
-export const authenticate = (req, res, next) => {
+export const authenticate = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1]
+    const authHeader = req.headers.authorization || ''
+    const [scheme, token] = authHeader.split(' ')
     
-    if (!token) {
+    if (scheme !== 'Bearer' || !token) {
       return res.status(errorStatusCodes.UNAUTHORIZED).json({
         success: false,
         message: errorMessages.TOKEN_REQUIRED
@@ -14,11 +16,40 @@ export const authenticate = (req, res, next) => {
     }
 
     try {
-      const decoded = jwt.verify(token, config.JWT_SECRET)
-      req.user = decoded
+      const decoded = verifyToken(token)
+
+      if (decoded.tokenType !== 'access') {
+        return res.status(errorStatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: errorMessages.TOKEN_INVALID
+        })
+      }
+
+      const user = await User.findById(decoded.userId).select('role isActive lastPasswordChange')
+      if (!user || !user.isActive) {
+        return res.status(errorStatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: errorMessages.TOKEN_INVALID
+        })
+      }
+
+      const passwordChangedAt = user.lastPasswordChange
+        ? Math.floor(user.lastPasswordChange.getTime() / 1000)
+        : 0
+      if (!decoded.iat || passwordChangedAt > decoded.iat) {
+        return res.status(errorStatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: errorMessages.TOKEN_INVALID
+        })
+      }
+
+      req.user = {
+        userId: user._id.toString(),
+        role: user.role
+      }
       next()
     } catch (error) {
-      if (error.name === 'TokenExpiredError') {
+      if (error.message === 'Token expired') {
         return res.status(errorStatusCodes.UNAUTHORIZED).json({
           success: false,
           message: 'Token expired'
@@ -58,7 +89,10 @@ export const authorize = (...allowedRoles) => {
 }
 
 export const errorHandler = (err, req, res, next) => {
-  console.error(err)
+  // Log error for debugging (exclude in production logs)
+  if (config.NODE_ENV === 'development') {
+    console.error(err)
+  }
 
   if (err.name === 'ValidationError') {
     return res.status(errorStatusCodes.BAD_REQUEST).json({

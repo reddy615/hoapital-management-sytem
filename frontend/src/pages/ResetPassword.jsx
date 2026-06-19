@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { authService } from '../services'
 import { toast } from 'react-toastify'
 
@@ -32,6 +32,7 @@ export default function ResetPassword() {
     e.preventDefault()
     const newErrors = {}
 
+    if (!token) newErrors.submit = 'Password reset token is missing'
     if (!formData.newPassword) newErrors.newPassword = 'Password is required'
     if (formData.newPassword.length < 8) newErrors.newPassword = 'Password must be at least 8 characters'
     if (formData.newPassword !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match'
@@ -112,6 +113,12 @@ export default function ResetPassword() {
             </div>
 
             {/* Submit Button */}
+            {errors.submit && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{errors.submit}</p>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -122,9 +129,9 @@ export default function ResetPassword() {
           </form>
 
           <p className="text-center text-gray-600 text-sm mt-4">
-            <a href="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
+            <Link to="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
               Back to Login
-            </a>
+            </Link>
           </p>
         </div>
       </div>
